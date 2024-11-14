@@ -16,9 +16,12 @@ public class WirejarkUI extends JFrame {
     private JButton showPortsButton;
     private JButton startMonitoringButton;
     private JButton closePortsButton;
-    private JButton showNetworkInterfacesButton; // Ağ arayüzlerini listeleme butonu
+    private JButton showNetworkInterfacesButton;
     private JTextArea packetArea;
     private PortScan portScanner;
+
+    private JTextField minPortField; // Minimum port numarası için JTextField
+    private JTextField maxPortField; // Maksimum port numarası için JTextField
 
     public WirejarkUI(PortScan portScanner) {
         this.portScanner = portScanner;
@@ -56,9 +59,26 @@ public class WirejarkUI extends JFrame {
         packetArea.setBorder(BorderFactory.createTitledBorder("Gelen/Giden Paketler ve Ağ Arayüzleri"));
         JScrollPane packetScrollPane = new JScrollPane(packetArea);
 
+        // Min ve Max Port numaraları için JTextField'ler
+        minPortField = new JTextField(5);
+        maxPortField = new JTextField(5);
+
+        // Port aralığı için panel
+        JPanel portRangePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        portRangePanel.add(new JLabel("Min Port:"));
+        portRangePanel.add(minPortField);
+        portRangePanel.add(new JLabel("Max Port:"));
+        portRangePanel.add(maxPortField);
+
         // Panel düzenleme
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(showPortsButton, BorderLayout.NORTH);
+        
+        // Üst paneli, butonu ve port aralığı için alanları ekliyoruz
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(portRangePanel, BorderLayout.NORTH);
+        topPanel.add(showPortsButton, BorderLayout.SOUTH); // "Portları Göster" butonunu buraya ekliyoruz
+        
+        panel.add(topPanel, BorderLayout.NORTH); // Üst paneli yerleştiriyoruz
         panel.add(new JScrollPane(portList), BorderLayout.CENTER);
 
         // Butonları bir alt panelde düzenleme
@@ -74,32 +94,79 @@ public class WirejarkUI extends JFrame {
 
     // Portları tarayan iç sınıf
     private class ShowPortsAction implements ActionListener {
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            listModel.clear();
-            showPortsButton.setEnabled(false);
-            new Thread(() -> {
-                try {
-                    List<Integer> openPorts = portScanner.findOpenPorts(36); // Örneğin 36 thread kullanarak tarama
-                    //1 tane thread açınca 13.28dk bekledi amk
-                    //36 tane açınca 4.48s
-                    openPorts.sort(Integer::compareTo);
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        listModel.clear();
+        showPortsButton.setEnabled(false);  // Buton başlangıçta devre dışı
+        new Thread(() -> {
+            try {
+                int minPort = 1;
+                int maxPort = 65535;
 
-                    SwingUtilities.invokeLater(() -> {
-                        for (int port : openPorts) {
-                            listModel.addElement("Port " + port);
+                // Min ve Max portları al
+                String minPortText = minPortField.getText();
+                String maxPortText = maxPortField.getText();
+
+                // Min port kontrolü
+                if (!minPortText.isEmpty()) {
+                    try {
+                        minPort = Integer.parseInt(minPortText);
+                        if (minPort < 1) {
+                            JOptionPane.showMessageDialog(WirejarkUI.this, "Minimum port numarası 1'den küçük olamaz!", "Hata", JOptionPane.ERROR_MESSAGE);
+                            SwingUtilities.invokeLater(() -> showPortsButton.setEnabled(true));  // Butonu tekrar etkinleştiriyoruz
+                            return;
                         }
-                        showPortsButton.setEnabled(true);
-                    });
-                } catch (Exception ex) {
-                    SwingUtilities.invokeLater(() -> showPortsButton.setEnabled(true));
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(WirejarkUI.this, "Geçersiz minimum port numarası!", "Hata", JOptionPane.ERROR_MESSAGE);
+                        SwingUtilities.invokeLater(() -> showPortsButton.setEnabled(true));  // Butonu tekrar etkinleştiriyoruz
+                        return;
+                    }
                 }
-            }).start();
-        }
+
+                // Max port kontrolü
+                if (!maxPortText.isEmpty()) {
+                    try {
+                        maxPort = Integer.parseInt(maxPortText);
+                        if (maxPort > 65535) {
+                            JOptionPane.showMessageDialog(WirejarkUI.this, "Maksimum port numarası 65535'den büyük olamaz!", "Hata", JOptionPane.ERROR_MESSAGE);
+                            SwingUtilities.invokeLater(() -> showPortsButton.setEnabled(true));  // Butonu tekrar etkinleştiriyoruz
+                            return;
+                        }
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(WirejarkUI.this, "Geçersiz maksimum port numarası!", "Hata", JOptionPane.ERROR_MESSAGE);
+                        SwingUtilities.invokeLater(() -> showPortsButton.setEnabled(true));  // Butonu tekrar etkinleştiriyoruz
+                        return;
+                    }
+                }
+
+                // Min port'un Max port'tan büyük olmaması kontrolü
+                if (minPort > maxPort) {
+                    JOptionPane.showMessageDialog(WirejarkUI.this, "Minimum port numarası maksimum port numarasından büyük olamaz!", "Hata", JOptionPane.ERROR_MESSAGE);
+                    SwingUtilities.invokeLater(() -> showPortsButton.setEnabled(true));  // Butonu tekrar etkinleştiriyoruz
+                    return;
+                }
+
+                // Port taramasını başlat
+                List<Integer> openPorts = portScanner.findOpenPorts(36,minPort, maxPort); // Min ve max portlarla tarama yap
+                openPorts.sort(Integer::compareTo);
+
+                SwingUtilities.invokeLater(() -> {
+                    for (int port : openPorts) {
+                        listModel.addElement("Port " + port);
+                    }
+                    showPortsButton.setEnabled(true);  // Taramadan sonra butonu tekrar etkinleştiriyoruz
+                });
+            } catch (Exception ex) {
+                SwingUtilities.invokeLater(() -> showPortsButton.setEnabled(true));  // Hata sonrası da buton etkinleştirilmeli
+            }
+        }).start();
     }
+}
+
 
     // Ağ arayüzlerini listeleyen iç sınıf
     private class ShowNetworkInterfacesAction implements ActionListener {
+
         @Override
         public void actionPerformed(ActionEvent e) {
             NetworkInterfaces lister = new NetworkInterfaces();
@@ -111,6 +178,7 @@ public class WirejarkUI extends JFrame {
 
     // Seçili portları dinlemeye başlayan iç sınıf
     private class StartMonitoringAction implements ActionListener {
+
         @Override
         public void actionPerformed(ActionEvent e) {
             int[] selectedIndices = portList.getSelectedIndices();
@@ -132,6 +200,7 @@ public class WirejarkUI extends JFrame {
     }
 
     private class ClosePortsAction implements ActionListener {
+
         @Override
         public void actionPerformed(ActionEvent e) {
             int[] selectedIndices = portList.getSelectedIndices();
@@ -145,8 +214,8 @@ public class WirejarkUI extends JFrame {
                 int port = Integer.parseInt(portString);
 
                 // Gelen ve giden trafiği engellemek için komutlar
-                String commandIn = "cmd /c netsh advfirewall firewall add rule name=\"ClosePort" + port + "_In\" protocol=TCP dir=in localport=" + port + " action=block";
-                String commandOut = "cmd /c netsh advfirewall firewall add rule name=\"ClosePort" + port + "_Out\" protocol=TCP dir=out localport=" + port + " action=block";
+                String commandIn = "sudo ufw deny in to any port " + port + " proto tcp";
+                String commandOut = "sudo ufw deny out to any port " + port + " proto tcp";
 
                 try {
                     // Gelen trafiği engelle
