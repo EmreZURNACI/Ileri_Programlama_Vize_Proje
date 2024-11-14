@@ -10,12 +10,9 @@ public class PortScan {
 
     private final List<Integer> openPorts = new CopyOnWriteArrayList<>();
 
-    public List<Integer> findOpenPorts(int threadCount) throws InterruptedException {
+    public List<Integer> findOpenPorts(int threadCount,int startPort,int endPort) throws InterruptedException {
         // Tarama öncesinde listeyi temizliyoruz
         openPorts.clear();
-
-        int startPort = 1;
-        int endPort = 65535;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
         List<Callable<Void>> tasks = new ArrayList<>();
@@ -47,7 +44,7 @@ public class PortScan {
 
     private boolean isPortOpen(int port) {
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress("127.0.0.1", port), 100); // Timeout'u 100 ms yaptık
+            socket.connect(new InetSocketAddress("127.0.0.1", port), 150); // Timeout'u 100 ms yaptık
             return true;
         } catch (Exception e) {
             return false;
