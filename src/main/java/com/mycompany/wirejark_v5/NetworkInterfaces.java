@@ -1,4 +1,4 @@
-package com.mycompany.wirejark_v5;
+package com.mycompany._wirejark;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -12,6 +12,8 @@ public class NetworkInterfaces {
     public void listNetworkInterfaces(JTextArea outputArea) {
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            //NetworkInterface.getNetworkInterfaces(); yapısı geriye uyumluluk konusundan ve hasMoreElements() ile nextElement()
+            //fonskiyonlarında dolayı Enumeration ile geriye dönülür.
 
             while (interfaces.hasMoreElements()) {
                 NetworkInterface networkInterface = interfaces.nextElement();
@@ -47,7 +49,6 @@ public class NetworkInterfaces {
             }
         } catch (SocketException e) {
             outputArea.append("Hata oluştu: " + e.getMessage() + "\n");
-            e.printStackTrace();
         }
     }
 
@@ -72,6 +73,7 @@ public class NetworkInterfaces {
         }
     }
 
+    // Boolean değerini Türkçeye çeviren yardımcı metot
     private String eng_to_turk(Boolean text) {
         if (text) {
             return "Evet";
